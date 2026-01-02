@@ -14,6 +14,10 @@ export class PixelatorSketch implements Sketch {
   public zoom: number = 1;
   public skin: 'default' | 'minesweeper' = 'default';
   public invert: boolean = false;
+  public thresholds: number[] = [];
+
+  // Font
+  private fontFamily: string = 'monospace';
 
   // Throttle (Slower updates)
   public fps: number = 60;
@@ -78,6 +82,12 @@ export class PixelatorSketch implements Sketch {
   }
 
   draw({ ctx, width, height, theme }: SketchContext) {
+    // Attempt to fetch correct font if we haven't yet (or if it's still default)
+    if (typeof window !== 'undefined' && this.fontFamily === 'monospace') {
+      const computed = getComputedStyle(document.documentElement).getPropertyValue('--font-geist-mono');
+      if (computed) this.fontFamily = computed.trim();
+    }
+
     if (Math.abs(width / this.cols - this.tileSize) > 0.1) {
       this.recalculateGrid(width, height);
     }
@@ -161,10 +171,25 @@ export class PixelatorSketch implements Sketch {
             const b = frameData[i + 2];
 
             const lumi = 0.299 * r + 0.587 * g + 0.114 * b;
-            let typeIndex = Math.floor((lumi / 256) * this.tileTypes);
+
+            let typeIndex = 0;
+            if (this.thresholds && this.thresholds.length > 0) {
+              // Custom ranges
+              typeIndex = this.thresholds.length;
+              for (let t = 0; t < this.thresholds.length; t++) {
+                if (lumi < this.thresholds[t]) {
+                  typeIndex = t;
+                  break;
+                }
+              }
+            } else {
+              // Default linear mapping
+              typeIndex = Math.floor((lumi / 256) * this.tileTypes);
+            }
 
             if (this.invert) {
-              typeIndex = (this.tileTypes - 1) - typeIndex;
+              const maxIndex = (this.thresholds && this.thresholds.length > 0) ? this.thresholds.length : this.tileTypes - 1;
+              typeIndex = maxIndex - typeIndex;
             }
 
             // Gap Fix: Integer Math
@@ -196,7 +221,7 @@ export class PixelatorSketch implements Sketch {
     const cy = y + h / 2 + (size * 0.05);
 
     const fontSize = size * 0.6;
-    ctx.font = `bold ${fontSize}px sans-serif`;
+    ctx.font = `bold ${fontSize}px ${this.fontFamily}`;
 
     switch (type) {
       case 0:
@@ -282,7 +307,7 @@ export class PixelatorSketch implements Sketch {
 
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.font = `bold ${size * 0.8}px serif`; // Serif looks more retro/minesweeper
+    ctx.font = `bold ${size * 0.8}px ${this.fontFamily}`; // Serif looks more retro/minesweeper
 
     switch (type) {
       case 0: // Number 3-5 (Darkest)

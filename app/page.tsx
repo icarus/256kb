@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import CanvasSketch from '@/components/canvas-sketch';
 import { LissajousSketch } from '@/lib/sketches/lissajous';
 import { PixelatorSketch } from '@/lib/sketches/pixelator';
+import { MultiRangeSlider } from '@/components/multi-range-slider';
 
 import { useCanvasRecorder } from '@/lib/use-canvas-recorder';
 import { cn } from '@/lib/utils';
@@ -45,7 +46,7 @@ export default function Home() {
   const [split, setSplit] = useState(0.45);
 
   // Lissajous Params
-  const [lissajousMode, setLissajousMode] = useState<'classic' | 'harmonic'>('classic');
+  const [lissajousMode, setLissajousMode] = useState<'classic' | 'harmonic' | 'table'>('classic');
 
   // Pixelator Params
   const [tiles, setTiles] = useState(40);
@@ -53,6 +54,7 @@ export default function Home() {
   const [zoom, setZoom] = useState(1);
   const [skin, setSkin] = useState<'default' | 'minesweeper'>('default');
   const [invert, setInvert] = useState(false);
+  const [thresholds, setThresholds] = useState<number[]>([51, 102, 153, 204]);
 
   const [fps, setFps] = useState(0);
   const [debugInfo, setDebugInfo] = useState<any>(null);
@@ -72,8 +74,9 @@ export default function Home() {
       sketch.zoom = zoom;
       sketch.skin = skin;
       sketch.invert = invert;
+      sketch.thresholds = thresholds;
     }
-  }, [sketch, tiles, fitMode, zoom, skin, invert]);
+  }, [sketch, tiles, fitMode, zoom, skin, invert, thresholds]);
 
   // Sync physics params to sketch
   useEffect(() => {
@@ -125,7 +128,13 @@ export default function Home() {
     // HQ = 25Mbps, 256kb ~ 350kbps target
     const bitrate = quality === 'hq' ? 25000000 : 350000;
 
-    setTimeout(() => startRecording(bitrate), 150);
+    const filenameMap: Record<SketchKey, string> = {
+      'lissajous': '0001_lissajous.mp4',
+      'pixelator': '0002_pixelator.mp4',
+    };
+    const filename = filenameMap[activeSketch] || `${activeSketch}.mp4`;
+
+    setTimeout(() => startRecording(bitrate, filename), 150);
   };
 
   return (
@@ -146,8 +155,8 @@ export default function Home() {
             onUpdate={handleUpdate}
           />
           {isRecording && (
-            <div className="absolute top-0 w-full h-1 bg-red-900/20">
-              <div className="h-full bg-red-600 animate-[progress_10s_linear_forwards]" />
+            <div className="fixed top-0 inset-x-0 w-full h-1 bg-[#00e]/20">
+              <div className="h-full bg-[#00e] animate-[progress_25s_linear_forwards]" />
             </div>
           )}
         </div>
@@ -171,6 +180,42 @@ export default function Home() {
             <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 opacity-50 w-4 h-4 text-text pointer-events-none" />
           </div>
         </div>
+
+        {/* --- TYPE / MODE / SKIN SELECTOR (Generic) --- */}
+        {activeSketch === 'lissajous' && (
+          <div className="space-y-2">
+            <label className="text-text">mode</label>
+            <div className="relative group">
+              <select
+                value={lissajousMode}
+                onChange={(e) => setLissajousMode(e.target.value as any)}
+                className="w-full text-text-strong p-2 rounded-none border border-border outline-none appearance-none hover:border-text-weak focus:border-text-strong transition-colors cursor-pointer"
+              >
+                <option value="classic">Classic</option>
+                <option value="harmonic">Harmonic</option>
+                <option value="table">Table</option>
+              </select>
+              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 opacity-50 w-4 h-4 text-text pointer-events-none" />
+            </div>
+          </div>
+        )}
+
+        {activeSketch === 'pixelator' && (
+          <div className="space-y-2">
+            <label className="text-text">skin</label>
+            <div className="relative group">
+              <select
+                value={skin}
+                onChange={(e) => setSkin(e.target.value as any)}
+                className="w-full text-text-strong p-2 rounded-none border border-border outline-none appearance-none hover:border-text-weak focus:border-text-strong transition-colors cursor-pointer"
+              >
+                <option value="default">Default</option>
+                <option value="minesweeper">Minesweeper</option>
+              </select>
+              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 opacity-50 w-4 h-4 text-text pointer-events-none" />
+            </div>
+          </div>
+        )}
 
         {activeSketch === 'lissajous' && (
           <div className="space-y-2">
@@ -251,29 +296,7 @@ export default function Home() {
                 <span className="text-text-main">{damping.toFixed(3)}</span>
               </div>
 
-              <div className="space-y-4 pt-4 border-t border-border mt-4">
-                <label className="text-text uppercase text-xs font-bold tracking-wider opacity-50">Visualization</label>
-                <div className="flex border border-border rounded-sm overflow-hidden">
-                  <button
-                    onClick={() => setLissajousMode('classic')}
-                    className={cn(
-                      "flex-1 py-1 text-xs transition-colors uppercase",
-                      lissajousMode === 'classic' ? "bg-text-strong text-text-inverted" : "hover:bg-background-weak"
-                    )}
-                  >
-                    Classic
-                  </button>
-                  <button
-                    onClick={() => setLissajousMode('harmonic')}
-                    className={cn(
-                      "flex-1 py-1 text-xs transition-colors uppercase",
-                      lissajousMode === 'harmonic' ? "bg-text-strong text-text-inverted" : "hover:bg-background-weak"
-                    )}
-                  >
-                    Harmonic
-                  </button>
-                </div>
-              </div>
+
               <div className="flex items-center gap-2">
                 <input
                   type="range"
@@ -350,20 +373,7 @@ export default function Home() {
                 }}
               />
 
-              <div className="space-y-2">
-                <label className="text-text">skin</label>
-                <div className="relative group">
-                  <select
-                    value={skin}
-                    onChange={(e) => setSkin(e.target.value as any)}
-                    className="w-full text-text-strong p-2 rounded-none border border-border outline-none appearance-none hover:border-text-weak focus:border-text-strong transition-colors cursor-pointer"
-                  >
-                    <option value="default">Default</option>
-                    <option value="minesweeper">Minesweeper</option>
-                  </select>
-                  <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 opacity-50 w-4 h-4 text-text pointer-events-none" />
-                </div>
-              </div>
+
 
               <button
                 onClick={() => setInvert(!invert)}
@@ -374,6 +384,18 @@ export default function Home() {
               >
                 Invert Tiles
               </button>
+
+              <div className="space-y-2 pt-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-text uppercase">Luminance Ranges</span>
+                </div>
+                <MultiRangeSlider
+                  min={0}
+                  max={255}
+                  value={thresholds}
+                  onChange={setThresholds}
+                />
+              </div>
 
               <div className="flex border border-border rounded-sm overflow-hidden">
                 <button

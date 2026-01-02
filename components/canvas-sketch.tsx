@@ -13,10 +13,11 @@ interface CanvasSketchProps {
   height?: number; // Internal resolution height
   foregroundColor?: string;
   backgroundColor?: string;
+  onUpdate?: (time: number, fps: number) => void;
 }
 
 const CanvasSketch = forwardRef<HTMLCanvasElement, CanvasSketchProps>(
-  ({ sketch, className, width = 1080, height = 1350, foregroundColor, backgroundColor }, ref) => {
+  ({ sketch, className, width = 1080, height = 1350, foregroundColor, backgroundColor, onUpdate }, ref) => {
     const internalCanvasRef = useRef<HTMLCanvasElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -77,6 +78,11 @@ const CanvasSketch = forwardRef<HTMLCanvasElement, CanvasSketchProps>(
           frame: frameCount,
           theme: getTheme()
         });
+
+        if (onUpdate) {
+          const fps = Math.round(1 / deltaTime);
+          onUpdate(time, fps);
+        }
 
         animationFrameId = requestAnimationFrame(loop);
       };

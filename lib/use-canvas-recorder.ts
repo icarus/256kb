@@ -37,7 +37,7 @@ export function useCanvasRecorder(canvasRef: React.RefObject<HTMLCanvasElement |
     }
   };
 
-  const startRecording = useCallback((bitrate: number = 25000000) => {
+  const startRecording = useCallback((bitrate: number = 25000000, filename: string = 'recording.mp4') => {
     const canvas = canvasRef.current;
     if (!canvas || !loaded) {
       if (!loaded) alert("Video encoder still loading, please wait...");
@@ -121,8 +121,7 @@ export function useCanvasRecorder(canvasRef: React.RefObject<HTMLCanvasElement |
       const a = document.createElement('a');
       a.style.display = 'none';
       a.href = url;
-      const tag = targetBitrate < 1000000 ? '256kb' : 'hq';
-      a.download = `lissajous_10s_${tag}_${Date.now()}.mp4`;
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
 
